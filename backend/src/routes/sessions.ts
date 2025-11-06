@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
+import { optionalAuth } from '../middleware/auth';
 import prisma from '../prisma';
 
 const router = Router();
 
 // Create new test session
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { testId, studentName } = req.body;
 
@@ -27,8 +28,18 @@ router.post('/', async (req: Request, res: Response) => {
     const session = await prisma.testSession.create({
       data: {
         testId,
-        studentName: studentName || null,
-        totalQuestions: test.questions.length
+        studentName: studentName || (req.user ? req.user.name : null),
+        totalQuestions: test.questions.length,
+        ...(req.user && { studentId: req.user.id })
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
       }
     });
 

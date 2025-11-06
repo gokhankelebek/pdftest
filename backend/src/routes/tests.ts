@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { upload, getFileUrl } from '../middleware/upload';
+import { requireAuth, requireRole, optionalAuth } from '../middleware/auth';
 import prisma from '../prisma';
 
 const router = Router();
@@ -58,7 +59,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create new test with PDF upload
-router.post('/', upload.single('pdf'), async (req: Request, res: Response) => {
+// TODO: Change optionalAuth to requireAuth + requireRole('TEACHER', 'ADMIN') in production
+router.post('/', optionalAuth, upload.single('pdf'), async (req: Request, res: Response) => {
   try {
     const { title, description } = req.body;
     const file = req.file;
@@ -79,7 +81,17 @@ router.post('/', upload.single('pdf'), async (req: Request, res: Response) => {
       data: {
         title,
         description: description || null,
-        pdfUrl
+        pdfUrl,
+        ...(req.user && { createdById: req.user.id })
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
       }
     });
 
@@ -91,7 +103,8 @@ router.post('/', upload.single('pdf'), async (req: Request, res: Response) => {
 });
 
 // Update test
-router.put('/:id', async (req: Request, res: Response) => {
+// TODO: Add ownership check - only creator can update their test
+router.put('/:id', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
@@ -112,7 +125,8 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete test
-router.delete('/:id', async (req: Request, res: Response) => {
+// TODO: Add ownership check - only creator can delete their test
+router.delete('/:id', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

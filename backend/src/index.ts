@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 
 // Import routes
+import authRouter from './routes/auth';
 import testsRouter from './routes/tests';
 import questionsRouter from './routes/questions';
 import regionsRouter from './routes/regions';
@@ -46,6 +47,7 @@ app.get('/', (req: Request, res: Response) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
+      auth: '/api/auth',
       tests: '/api/tests',
       questions: '/api/questions',
       regions: '/api/regions',
@@ -55,6 +57,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/tests', testsRouter);
 app.use('/api', questionsRouter);  // Includes /api/tests/:testId/questions
 app.use('/api', regionsRouter);    // Includes /api/questions/:questionId/regions
