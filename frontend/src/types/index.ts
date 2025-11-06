@@ -2,6 +2,17 @@
  * Type definitions for the PDF MCQ Test application
  */
 
+export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Region {
   id: string;
   questionId: string;

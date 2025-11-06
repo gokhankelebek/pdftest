@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Test, TestSession, Question, Region } from '../types';
+import { Test, TestSession, Question, Region, User } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -9,6 +9,29 @@ const apiClient = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+// Add token to requests if available
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 errors (token expired)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Health check
 export const healthCheck = async () => {
@@ -137,6 +160,48 @@ export const getSession = async (sessionId: string): Promise<TestSession> => {
 
 export const getTestSessions = async (testId: string): Promise<TestSession[]> => {
   const response = await apiClient.get(`/tests/${testId}/sessions`);
+  return response.data;
+};
+
+// Auth endpoints
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  name: string;
+  role?: 'STUDENT' | 'TEACHER' | 'ADMIN';
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+}
+
+export const login = async (data: LoginData): Promise<AuthResponse> => {
+  const response = await apiClient.post('/auth/login', data);
+  return response.data;
+};
+
+export const register = async (data: RegisterData): Promise<AuthResponse> => {
+  const response = await apiClient.post('/auth/register', data);
+  return response.data;
+};
+
+export const getCurrentUser = async (): Promise<{ user: User }> => {
+  const response = await apiClient.get('/auth/me');
+  return response.data;
+};
+
+export const logout = async (): Promise<void> => {
+  await apiClient.post('/auth/logout');
+};
+
+export const refreshToken = async (): Promise<{ token: string }> => {
+  const response = await apiClient.post('/auth/refresh');
   return response.data;
 };
 
