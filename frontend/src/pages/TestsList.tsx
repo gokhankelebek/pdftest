@@ -1,16 +1,44 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FileText, Calendar, ArrowRight } from 'lucide-react';
+import { getTests } from '../api/client';
+import { Test } from '../types';
 
 export default function TestsList() {
-  // Mock data for now
-  const tests = [
-    {
-      id: '1',
-      title: 'Sample Math Test',
-      description: 'Basic algebra and geometry questions',
-      createdAt: '2024-01-15',
-      questionCount: 10
+  const navigate = useNavigate();
+  const [tests, setTests] = useState<Test[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadTests();
+  }, []);
+
+  const loadTests = async () => {
+    try {
+      setLoading(true);
+      const data = await getTests();
+      setTests(data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading tests:', err);
+      setError('Failed to load tests');
+      setLoading(false);
     }
-  ];
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading tests...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -24,10 +52,17 @@ export default function TestsList() {
           </p>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            {error}
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tests.map((test) => (
             <div
               key={test.id}
+              onClick={() => navigate(`/test/${test.id}`)}
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-4">
@@ -53,16 +88,17 @@ export default function TestsList() {
                   <span>{new Date(test.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div>
-                  {test.questionCount} questions
+                  {test.questions?.length || 0} questions
                 </div>
               </div>
             </div>
           ))}
 
-          {tests.length === 0 && (
+          {tests.length === 0 && !error && (
             <div className="col-span-full text-center py-12">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No tests available yet</p>
+              <p className="text-sm text-gray-400 mt-2">Create a test from the admin panel</p>
             </div>
           )}
         </div>
