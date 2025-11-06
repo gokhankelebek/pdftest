@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Test {
+  id          String        @id @default(uuid())
+  title       String
+  description String?
+  pdfUrl      String
+  createdAt   DateTime      @default(now())
+  questions   Question[]
+  sessions    TestSession[]
+}
+
+model Question {
+  id             String   @id @default(uuid())
+  testId         String
+  questionNumber Int
+  pageNumber     Int
+  correctAnswer  String
+  test           Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  regions        Region[]
+}
+
+model Region {
+  id         String   @id @default(uuid())
+  questionId String
+  answerId   String
+  x          Float
+  y          Float
+  width      Float
+  height     Float
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model TestSession {
+  id             String   @id @default(uuid())
+  testId         String
+  studentName    String?
+  startTime      DateTime @default(now())
+  endTime        DateTime?
+  score          Int?
+  totalQuestions Int
+  test           Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  answers        Answer[]
+}
+
+model Answer {
+  id             String      @id @default(uuid())
+  sessionId      String
+  questionId     String
+  selectedAnswer String
+  isCorrect      Boolean
+  session        TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
