@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { createTest } from '../api/client';
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -36,18 +39,17 @@ export default function AdminPanel() {
     setError(null);
 
     try {
-      // TODO: Implement API call to create test
-      console.log('Creating test:', { title, description, file: selectedFile });
+      // Create test via API
+      const test = await createTest({
+        title,
+        description,
+        pdfFile: selectedFile
+      });
 
-      // Simulate upload
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Test created:', test);
 
-      alert('Test created successfully! (Demo - API not yet implemented)');
-
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setSelectedFile(null);
+      // Navigate to configuration page
+      navigate(`/admin/test/${test.id}`);
     } catch (err) {
       setError('Failed to create test. Please try again.');
       console.error(err);

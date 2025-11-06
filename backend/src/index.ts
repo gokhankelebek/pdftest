@@ -4,6 +4,12 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 
+// Import routes
+import testsRouter from './routes/tests';
+import questionsRouter from './routes/questions';
+import regionsRouter from './routes/regions';
+import sessionsRouter from './routes/sessions';
+
 // Load environment variables
 dotenv.config();
 
@@ -40,11 +46,19 @@ app.get('/', (req: Request, res: Response) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
-      tests: '/api/tests (coming soon)',
-      sessions: '/api/sessions (coming soon)'
+      tests: '/api/tests',
+      questions: '/api/questions',
+      regions: '/api/regions',
+      sessions: '/api/sessions'
     }
   });
 });
+
+// API Routes
+app.use('/api/tests', testsRouter);
+app.use('/api', questionsRouter);  // Includes /api/tests/:testId/questions
+app.use('/api', regionsRouter);    // Includes /api/questions/:questionId/regions
+app.use('/api/sessions', sessionsRouter);
 
 // Start server
 app.listen(PORT, () => {
