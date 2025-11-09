@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
+import { LogIn, Mail, Lock, AlertCircle, Zap } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, register } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [quickLoginLoading, setQuickLoginLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +38,33 @@ export default function Login() {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Quick Admin Login for Development
+  const handleQuickAdminLogin = async () => {
+    setQuickLoginLoading(true);
+    setError('');
+
+    const adminEmail = 'admin@test.com';
+    const adminPassword = 'admin123';
+    const adminName = 'Quick Admin';
+
+    try {
+      // Try to login first
+      await login(adminEmail, adminPassword);
+      navigate('/');
+    } catch (loginError: any) {
+      // If login fails, the account might not exist - try to register
+      try {
+        await register(adminEmail, adminPassword, adminName, 'ADMIN');
+        navigate('/');
+      } catch (registerError: any) {
+        // If register also fails, show error
+        setError('Failed to create/login admin account. Please try manual registration.');
+      }
+    } finally {
+      setQuickLoginLoading(false);
     }
   };
 
@@ -123,7 +151,7 @@ export default function Login() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || quickLoginLoading}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (
@@ -138,6 +166,31 @@ export default function Login() {
               </>
             )}
           </button>
+
+          {/* Quick Admin Login - Development Only */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={handleQuickAdminLogin}
+              disabled={isLoading || quickLoginLoading}
+              className="w-full flex justify-center items-center gap-2 py-3 px-4 border-2 border-dashed border-orange-300 rounded-lg shadow-sm text-sm font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {quickLoginLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-700"></div>
+                  Logging in...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-5 h-5" />
+                  Quick Admin Login (DEV)
+                </>
+              )}
+            </button>
+            <p className="text-xs text-orange-600 text-center mt-2 font-medium">
+              ⚡ Development shortcut - Creates/logs in as admin@test.com
+            </p>
+          </div>
 
           {/* Demo Accounts */}
           <div className="mt-6 pt-6 border-t border-gray-200">
