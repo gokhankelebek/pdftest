@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -11,16 +12,32 @@ import questionsRouter from './routes/questions';
 import regionsRouter from './routes/regions';
 import sessionsRouter from './routes/sessions';
 
+// Import security middleware
+import { apiLimiter, authLimiter } from './middleware/security';
+
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin resource loading
+  contentSecurityPolicy: false // Disable CSP for now (can be configured later)
+}));
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -56,12 +73,12 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-// API Routes
-app.use('/api/auth', authRouter);
-app.use('/api/tests', testsRouter);
-app.use('/api', questionsRouter);  // Includes /api/tests/:testId/questions
-app.use('/api', regionsRouter);    // Includes /api/questions/:questionId/regions
-app.use('/api/sessions', sessionsRouter);
+// API Routes with rate limiting
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/tests', apiLimiter, testsRouter);
+app.use('/api', apiLimiter, questionsRouter);  // Includes /api/tests/:testId/questions
+app.use('/api', apiLimiter, regionsRouter);    // Includes /api/questions/:questionId/regions
+app.use('/api/sessions', apiLimiter, sessionsRouter);
 
 // Start server
 app.listen(PORT, () => {

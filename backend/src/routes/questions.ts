@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
+import { requireAuth } from '../middleware/auth';
+import { validate, createQuestionSchema, updateQuestionSchema, deleteQuestionSchema } from '../middleware/validation';
 import prisma from '../prisma';
 
 const router = Router();
 
 // Create question for a test
-router.post('/tests/:testId/questions', async (req: Request, res: Response) => {
+router.post('/tests/:testId/questions', requireAuth, validate(createQuestionSchema), async (req: Request, res: Response) => {
   try {
     const { testId } = req.params;
     const { questionNumber, pageNumber, correctAnswer } = req.body;
@@ -13,6 +15,21 @@ router.post('/tests/:testId/questions', async (req: Request, res: Response) => {
       return res.status(400).json({
         error: 'questionNumber, pageNumber, and correctAnswer are required'
       });
+    }
+
+    // Check if test exists and user has permission
+    const test = await prisma.test.findUnique({
+      where: { id: testId },
+      select: { id: true, createdById: true }
+    });
+
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+
+    // Only creator or ADMIN can add questions
+    if (test.createdById !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You do not have permission to add questions to this test' });
     }
 
     const question = await prisma.question.create({
@@ -58,10 +75,29 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Update question
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requireAuth, validate(updateQuestionSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { questionNumber, pageNumber, correctAnswer } = req.body;
+
+    // Check if question exists and get associated test
+    const existingQuestion = await prisma.question.findUnique({
+      where: { id },
+      include: {
+        test: {
+          select: { createdById: true }
+        }
+      }
+    });
+
+    if (!existingQuestion) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    // Only test creator or ADMIN can update
+    if (existingQuestion.test.createdById !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You do not have permission to update this question' });
+    }
 
     const question = await prisma.question.update({
       where: { id },
@@ -83,9 +119,28 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // Delete question
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, validate(deleteQuestionSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Check if question exists and get associated test
+    const existingQuestion = await prisma.question.findUnique({
+      where: { id },
+      include: {
+        test: {
+          select: { createdById: true }
+        }
+      }
+    });
+
+    if (!existingQuestion) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    // Only test creator or ADMIN can delete
+    if (existingQuestion.test.createdById !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You do not have permission to delete this question' });
+    }
 
     await prisma.question.delete({
       where: { id }

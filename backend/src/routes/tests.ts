@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { upload, getFileUrl } from '../middleware/upload';
-import { requireAuth, requireRole, optionalAuth } from '../middleware/auth';
+import { requireAuth, requireRole } from '../middleware/auth';
+import { validate, updateTestSchema, deleteTestSchema, getTestSchema } from '../middleware/validation';
 import prisma from '../prisma';
 
 const router = Router();
@@ -29,7 +30,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Get single test
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', validate(getTestSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -59,8 +60,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create new test with PDF upload
-// TODO: Change optionalAuth to requireAuth + requireRole('TEACHER', 'ADMIN') in production
-router.post('/', optionalAuth, upload.single('pdf'), async (req: Request, res: Response) => {
+router.post('/', requireAuth, requireRole('TEACHER', 'ADMIN'), upload.single('pdf'), async (req: Request, res: Response) => {
   try {
     const { title, description } = req.body;
     const file = req.file;
@@ -76,13 +76,13 @@ router.post('/', optionalAuth, upload.single('pdf'), async (req: Request, res: R
     // Generate file URL
     const pdfUrl = getFileUrl(file.filename, req);
 
-    // Create test in database
+    // Create test in database (user is guaranteed to exist due to requireAuth)
     const test = await prisma.test.create({
       data: {
         title,
         description: description || null,
         pdfUrl,
-        ...(req.user && { createdById: req.user.id })
+        createdById: req.user!.id
       },
       include: {
         createdBy: {
@@ -103,11 +103,25 @@ router.post('/', optionalAuth, upload.single('pdf'), async (req: Request, res: R
 });
 
 // Update test
-// TODO: Add ownership check - only creator can update their test
-router.put('/:id', optionalAuth, async (req: Request, res: Response) => {
+router.put('/:id', requireAuth, validate(updateTestSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
+
+    // Check if test exists and user has permission
+    const existingTest = await prisma.test.findUnique({
+      where: { id },
+      select: { id: true, createdById: true }
+    });
+
+    if (!existingTest) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+
+    // Only creator or ADMIN can update
+    if (existingTest.createdById !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You do not have permission to update this test' });
+    }
 
     const test = await prisma.test.update({
       where: { id },
@@ -125,10 +139,24 @@ router.put('/:id', optionalAuth, async (req: Request, res: Response) => {
 });
 
 // Delete test
-// TODO: Add ownership check - only creator can delete their test
-router.delete('/:id', optionalAuth, async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, validate(deleteTestSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Check if test exists and user has permission
+    const existingTest = await prisma.test.findUnique({
+      where: { id },
+      select: { id: true, createdById: true }
+    });
+
+    if (!existingTest) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+
+    // Only creator or ADMIN can delete
+    if (existingTest.createdById !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You do not have permission to delete this test' });
+    }
 
     await prisma.test.delete({
       where: { id }
@@ -141,15 +169,37 @@ router.delete('/:id', optionalAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Get test sessions
-router.get('/:id/sessions', async (req: Request, res: Response) => {
+// Get test sessions (requires authentication - teachers/admins only)
+router.get('/:id/sessions', requireAuth, requireRole('TEACHER', 'ADMIN'), validate(getTestSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Check if test exists and user has permission
+    const test = await prisma.test.findUnique({
+      where: { id },
+      select: { id: true, createdById: true }
+    });
+
+    if (!test) {
+      return res.status(404).json({ error: 'Test not found' });
+    }
+
+    // Only creator or ADMIN can view sessions
+    if (test.createdById !== req.user!.id && req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'You do not have permission to view sessions for this test' });
+    }
 
     const sessions = await prisma.testSession.findMany({
       where: { testId: id },
       include: {
-        answers: true
+        answers: true,
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
       },
       orderBy: {
         startTime: 'desc'
