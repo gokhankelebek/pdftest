@@ -8,7 +8,7 @@ import Register from './pages/Register';
 import AdminPanel from './pages/AdminPanel';
 import TestConfiguration from './pages/TestConfiguration';
 import TestsList from './pages/TestsList';
-import TakeTest from './pages/TakeTest';
+import EnhancedTakeTest from './pages/EnhancedTakeTest';
 import TestResults from './pages/TestResults';
 import Results from './pages/Results';
 
@@ -45,7 +45,7 @@ function App() {
 
             {/* Student/Public routes - TODO: Add authentication for test taking */}
             <Route path="tests" element={<TestsList />} />
-            <Route path="test/:testId" element={<TakeTest />} />
+            <Route path="test/:testId" element={<EnhancedTakeTest />} />
             <Route path="results" element={<Results />} />
             <Route path="results/:sessionId" element={<TestResults />} />
           </Route>
